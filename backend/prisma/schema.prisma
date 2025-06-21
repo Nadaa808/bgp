@@ -25,7 +25,7 @@ model User {
   password  String
   firstName String?
   lastName  String?
-  userType  UserRole @default(INVESTOR)
+  userType  UserRole @default(ADMIN)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -46,4 +46,44 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
+}
+
+model Client {
+  id             Int      @id @default(autoincrement())
+  clientId       String   @unique
+  email          String   @unique
+  firstName      String
+  lastName       String
+  country        String
+  isVerified     Boolean  @default(false)
+  registrationAt DateTime @default(now())
+  tradingStatus  String
+  manager        String
+  balance        Float    @default(0)
+  clientType     String   // 'Individual' or 'Community'
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("clients")
+}
+
+model Lead {
+  id             Int      @id @default(autoincrement())
+  leadId         String   @unique
+  email          String   @unique
+  firstName      String
+  lastName       String
+  country        String
+  status         String   // 'Hot', 'Warm', 'Cold'
+  source         String   // 'Website', 'Referral', 'Social Media', etc.
+  score          Int      @default(0)
+  estimatedValue Float    @default(0)
+  clientType     String   // 'Individual' or 'Community'
+  lastContact    DateTime @default(now())
+  notes          String?
+  convertedToClientId Int?  // Reference to Client if converted
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("leads")
 }
