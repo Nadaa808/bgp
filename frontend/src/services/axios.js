@@ -5,7 +5,7 @@ const instance = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    withCredentials: false, // Changed to false to avoid CORS issues
+    withCredentials: true,
     timeout: 10000,
 });
 

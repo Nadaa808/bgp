@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
   CardContent,
   Typography,
+  Tabs,
+  Tab,
   Table,
   TableBody,
   TableCell,
@@ -18,6 +21,7 @@ import {
   TextField,
   InputAdornment,
   Grid,
+
   Menu,
   MenuItem
 } from '@mui/material';
@@ -33,8 +37,21 @@ import {
   Business as BusinessIcon
 } from '@mui/icons-material';
 import './ClientLeadsManagement.css';
+import axios from '../../services/axios';
 
 const ClientLeadsManagement = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Get tab from URL parameters
+  const getTabFromUrl = () => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === 'leads') return 1;
+    return 0; // default to clients
+  };
+  
+  const [activeTab, setActiveTab] = useState(getTabFromUrl());
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const [_selectedItem, setSelectedItem] = useState(null);
@@ -54,6 +71,11 @@ const ClientLeadsManagement = () => {
     fetchData();
   }, []);
 
+  // Sync tab with URL changes
+  useEffect(() => {
+    setActiveTab(getTabFromUrl());
+  }, [location.search]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -61,64 +83,51 @@ const ClientLeadsManagement = () => {
       
       if (!token) {
         console.error('No auth token found');
-        setError('Authentication token not found. Please log in again.');
         return;
       }
       
       console.log('Fetching data with token:', token.substring(0, 20) + '...');
       
-      // Fetch clients, leads, and stats in parallel using direct fetch
+      // Fetch clients, leads, and stats in parallel
       const [clientsRes, leadsRes, clientStatsRes, leadStatsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/clients', {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }).then(res => res.json()),
-        fetch('http://localhost:5000/api/leads', {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }).then(res => res.json()),
-        fetch('http://localhost:5000/api/clients/stats/overview', {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }).then(res => res.json()),
-        fetch('http://localhost:5000/api/leads/stats/overview', {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }).then(res => res.json())
+        axios.get('/api/clients', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get('/api/leads', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get('/api/clients/stats/overview', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get('/api/leads/stats/overview', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
       ]);
 
       console.log('API Responses:', {
-        clients: clientsRes,
-        leads: leadsRes,
-        clientStats: clientStatsRes,
-        leadStats: leadStatsRes
+        clients: clientsRes.data,
+        leads: leadsRes.data,
+        clientStats: clientStatsRes.data,
+        leadStats: leadStatsRes.data
       });
 
-      setClients(clientsRes.data || []);
-      setLeads(leadsRes.data || []);
+      setClients(clientsRes.data.data || []);
+      setLeads(leadsRes.data.data || []);
       
       // Combine stats
-      const clientStats = clientStatsRes.data;
-      const leadStats = leadStatsRes.data;
+      const clientStats = clientStatsRes.data.data;
+      const leadStats = leadStatsRes.data.data;
       
       setStats({
-        totalClients: clientStats?.totalClients || 0,
-        totalLeads: leadStats?.totalLeads || 0,
-        totalBalance: clientStats?.totalBalance || 0,
-        verificationRate: clientStats?.verificationRate || 0
+        totalClients: clientStats.totalClients || 0,
+        totalLeads: leadStats.totalLeads || 0,
+        totalBalance: clientStats.totalBalance || 0,
+        verificationRate: clientStats.verificationRate || 0
       });
       
       console.log('Data loaded successfully:', {
-        clientsCount: clientsRes.data?.length,
-        leadsCount: leadsRes.data?.length,
+        clientsCount: clientsRes.data.data?.length,
+        leadsCount: leadsRes.data.data?.length,
         stats: stats
       });
       
@@ -148,7 +157,12 @@ const ClientLeadsManagement = () => {
 
 
 
-
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+    // Update URL to reflect tab change
+    const tabParam = newValue === 1 ? 'leads' : 'clients';
+    navigate(`/admin/clients?tab=${tabParam}`, { replace: true });
+  };
 
   const handleMenuOpen = (event, item) => {
     setAnchorEl(event.currentTarget);
@@ -312,159 +326,100 @@ const ClientLeadsManagement = () => {
     </TableContainer>
   );
 
-  const CombinedTable = () => {
-    // Combine clients and leads into a single array
-    const combinedData = [
-      ...clients.map(client => ({
-        ...client,
-        type: 'Client',
-        id: `client-${client.id}`,
-        identifier: client.clientId,
-        status: client.tradingStatus,
-        value: client.balance,
-        dateField: client.registrationAt,
-        isVerified: client.isVerified
-      })),
-      ...leads.map(lead => ({
-        ...lead,
-        type: 'Lead',
-        id: `lead-${lead.id}`,
-        identifier: lead.leadId,
-        status: lead.status,
-        value: lead.estimatedValue,
-        dateField: lead.lastContact,
-        manager: lead.source,
-        tradingStatus: lead.status
-      }))
-    ];
-
-    const filteredData = combinedData.filter(item => 
-      item.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.identifier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.country.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    return (
-      <TableContainer component={Paper} className="data-table">
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Type</TableCell>
-              <TableCell>ID</TableCell>
-              <TableCell>Email ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Country</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Manager/Source</TableCell>
-              <TableCell>Value</TableCell>
-              <TableCell>Client Type</TableCell>
-              <TableCell align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredData.map((item) => (
-              <TableRow key={item.id} className="table-row">
-                <TableCell>
-                  <Chip
-                    label={item.type}
-                    size="small"
-                    sx={{
-                      background: item.type === 'Client' ? '#3498db20' : '#f5576c20',
-                      color: item.type === 'Client' ? '#3498db' : '#f5576c',
-                      fontWeight: 600
-                    }}
-                  />
-                </TableCell>
+  const LeadsTable = () => (
+    <TableContainer component={Paper} className="data-table">
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Lead ID</TableCell>
+            <TableCell>Email ID</TableCell>
+            <TableCell>Name</TableCell>
+            <TableCell>Country</TableCell>
+            <TableCell>Status</TableCell>
+            <TableCell>Source</TableCell>
+            <TableCell>Score</TableCell>
+            <TableCell>Last Contact</TableCell>
+            <TableCell>Est. Value</TableCell>
+            <TableCell>Type</TableCell>
+            <TableCell align="center">Actions</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {leads
+            .filter(lead => 
+              lead.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              lead.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              lead.leadId.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .map((lead) => (
+              <TableRow key={lead.id} className="table-row">
                 <TableCell>
                   <Typography variant="body2" fontWeight={600} color="#2c3e50">
-                    {item.identifier}
+                    {lead.leadId}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Box display="flex" alignItems="center" gap={1}>
                     <EmailIcon fontSize="small" color="action" />
-                    <Typography variant="body2">{item.email}</Typography>
+                    <Typography variant="body2">{lead.email}</Typography>
                   </Box>
                 </TableCell>
                 <TableCell>
                   <Box display="flex" alignItems="center" gap={2}>
-                    <Avatar sx={{ 
-                      background: item.type === 'Client' ? '#3498db' : '#f5576c' 
-                    }}>
-                      {item.firstName[0]}{item.lastName[0]}
+                    <Avatar sx={{ background: '#f5576c' }}>
+                      {lead.firstName[0]}{lead.lastName[0]}
                     </Avatar>
                     <Box>
                       <Typography variant="body2" fontWeight={600}>
-                        {item.firstName} {item.lastName}
+                        {lead.firstName} {lead.lastName}
                       </Typography>
                     </Box>
                   </Box>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2">{item.country}</Typography>
+                  <Typography variant="body2">{lead.country}</Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={lead.status}
+                    size="small"
+                    sx={{
+                      background: `${getStatusColor(lead.status)}20`,
+                      color: getStatusColor(lead.status),
+                      fontWeight: 600
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2">{lead.source}</Typography>
                 </TableCell>
                 <TableCell>
                   <Box display="flex" alignItems="center" gap={1}>
-                    <Chip
-                      label={item.status}
-                      size="small"
-                      sx={{
-                        background: `${getStatusColor(item.status)}20`,
-                        color: getStatusColor(item.status),
-                        fontWeight: 600
-                      }}
-                    />
-                    {item.type === 'Client' && item.isVerified && (
-                      <Chip
-                        label="Verified"
-                        size="small"
-                        sx={{
-                          background: '#43e97b20',
-                          color: '#43e97b',
-                          fontWeight: 600,
-                          ml: 1
-                        }}
-                      />
-                    )}
+                    <Typography variant="body2" fontWeight={600}>
+                      {lead.score}
+                    </Typography>
+                    <TrendingUpIcon fontSize="small" color="action" />
                   </Box>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" color="text.secondary">
-                    {formatDate(item.dateField)}
+                    {formatDate(lead.lastContact)}
                   </Typography>
-                </TableCell>
-                <TableCell>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <PersonIcon fontSize="small" color="action" />
-                    <Typography variant="body2">
-                      {item.type === 'Client' ? item.manager : item.source}
-                    </Typography>
-                  </Box>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" fontWeight={600} color="#2c3e50">
-                    {formatCurrency(item.value)}
+                    {formatCurrency(lead.estimatedValue)}
                   </Typography>
-                  {item.type === 'Lead' && item.score && (
-                    <Box display="flex" alignItems="center" gap={1} mt={0.5}>
-                      <Typography variant="caption" color="text.secondary">
-                        Score: {item.score}
-                      </Typography>
-                      <TrendingUpIcon fontSize="small" color="action" />
-                    </Box>
-                  )}
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={item.clientType}
+                    label={lead.clientType}
                     size="small"
                     variant="outlined"
                     sx={{
-                      borderColor: item.clientType === 'Individual' ? '#3498db' : '#f093fb',
-                      color: item.clientType === 'Individual' ? '#3498db' : '#f093fb',
+                      borderColor: lead.clientType === 'Individual' ? '#3498db' : '#f093fb',
+                      color: lead.clientType === 'Individual' ? '#3498db' : '#f093fb',
                       fontWeight: 600
                     }}
                   />
@@ -472,18 +427,17 @@ const ClientLeadsManagement = () => {
                 <TableCell align="center">
                   <IconButton
                     size="small"
-                    onClick={(e) => handleMenuOpen(e, item)}
+                    onClick={(e) => handleMenuOpen(e, lead)}
                   >
                     <MoreVertIcon />
                   </IconButton>
                 </TableCell>
               </TableRow>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
-  };
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
 
   if (loading) {
     return (
@@ -613,16 +567,21 @@ const ClientLeadsManagement = () => {
       {/* Main Content */}
       <Card className="main-card">
         <CardContent>
-          {/* Search Bar */}
+          {/* Tabs and Actions */}
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h6" sx={{ color: '#2c3e50', fontWeight: 600 }}>
-              All Clients & Leads
-            </Typography>
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              className="custom-tabs"
+            >
+              <Tab label="Clients" />
+              <Tab label="Leads" />
+            </Tabs>
             
             <Box display="flex" gap={2}>
               <TextField
                 size="small"
-                placeholder="Search clients and leads..."
+                placeholder={`Search ${activeTab === 0 ? 'clients' : 'leads'}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 InputProps={{
@@ -632,13 +591,13 @@ const ClientLeadsManagement = () => {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ width: 300 }}
+                sx={{ width: 250 }}
               />
             </Box>
           </Box>
 
-          {/* Combined Table Content */}
-          <CombinedTable />
+          {/* Table Content */}
+          {activeTab === 0 ? <ClientsTable /> : <LeadsTable />}
         </CardContent>
       </Card>
 

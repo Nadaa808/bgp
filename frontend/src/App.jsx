@@ -4,6 +4,18 @@ import SignIn from './pages/SignIn';
 import Dashboard from './components/dashboard/Dashboard.jsx';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ClientLeadsManagement from './components/admin/ClientLeadsManagement';
+import UserManagement from './components/admin/UserManagement';
+import UserProfile from './components/admin/UserProfile';
+import AssetManagement from './components/admin/AssetManagement';
+import TokenManagement from './components/admin/TokenManagement';
+import KYCManagement from './components/admin/KYCManagement';
+import ComplianceCenter from './components/admin/ComplianceCenter';
+import SecurityCenter from './components/admin/SecurityCenter';
+import RegulatoryReports from './components/admin/RegulatoryReports';
+import TransactionMonitor from './components/admin/TransactionMonitor';
+import WalletManagement from './components/admin/WalletManagement';
+import InvestmentManagement from './components/admin/InvestmentManagement';
+import DIDManagement from './components/admin/DIDManagement';
 import './App.css';
 
 // Protected Route Component
@@ -11,10 +23,18 @@ const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   const userRole = localStorage.getItem('userRole');
   
+  console.log('🔐 ProtectedRoute check:', {
+    hasToken: !!token,
+    userRole: userRole,
+    isAdmin: userRole === 'ADMIN'
+  });
+  
   if (!token || userRole !== 'ADMIN') {
+    console.log('❌ Access denied - redirecting to login');
     return <Navigate to="/" replace />;
   }
   
+  console.log('✅ Access granted - rendering dashboard');
   return children;
 };
 
@@ -36,17 +56,18 @@ function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="clients" element={<ClientLeadsManagement />} />
-            <Route path="assets" element={<div>Asset Management</div>} />
-            <Route path="tokens" element={<div>Token Management</div>} />
-            <Route path="kyc" element={<div>KYC Management</div>} />
-            <Route path="compliance" element={<div>Compliance Center</div>} />
-            <Route path="security" element={<div>Security Center</div>} />
-            <Route path="reports" element={<div>Regulatory Reports</div>} />
-            <Route path="transactions" element={<div>Transaction Monitor</div>} />
-            <Route path="wallets" element={<div>Wallet Management</div>} />
-            <Route path="revenue" element={<div>Revenue Management</div>} />
-            <Route path="investments" element={<div>Investment Management</div>} />
-            <Route path="did" element={<div>DID Management</div>} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="users/:userId" element={<UserProfile />} />
+            <Route path="assets" element={<AssetManagement />} />
+            <Route path="tokens" element={<TokenManagement />} />
+            <Route path="kyc" element={<KYCManagement />} />
+            <Route path="compliance" element={<ComplianceCenter />} />
+            <Route path="security" element={<SecurityCenter />} />
+            <Route path="reports" element={<RegulatoryReports />} />
+            <Route path="transactions" element={<TransactionMonitor />} />
+            <Route path="wallets" element={<WalletManagement />} />
+            <Route path="investments" element={<InvestmentManagement />} />
+            <Route path="did" element={<DIDManagement />} />
           </Route>
           
           {/* Fallback Route */}

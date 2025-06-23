@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SignIn.css';
+import axios from '../services/axios';
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -29,47 +30,39 @@ const SignIn = () => {
     setSuccess('');
     
     try {
-      console.log('Attempting to sign in with:', { 
-        email: formData.email, 
-        rememberMe: formData.rememberMe 
+      const response = await axios.post('/api/auth/signin', {
+        email: formData.email,
+        password: formData.password,
+        rememberMe: formData.rememberMe
       });
-      
-      // Try with direct fetch first to bypass potential axios issues
-      const response = await fetch('http://localhost:5000/api/auth/signin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          rememberMe: formData.rememberMe
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setSuccess(`🚀 Welcome ${data.data.user.firstName}! Admin Dashboard Access Granted`);
-        console.log('Admin user data:', data.data);
+
+      if (response.data.success) {
+        setSuccess(`🚀 Welcome ${response.data.data.user.firstName}! Admin Dashboard Access Granted`);
+        console.log('✅ Login successful! User data:', response.data.data);
         
         // Store the JWT token and admin data
-        localStorage.setItem('token', data.data.token);
-        localStorage.setItem('user', JSON.stringify(data.data.user));
+        localStorage.setItem('token', response.data.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.data.user));
         localStorage.setItem('dashboardAccess', 'true');
-        localStorage.setItem('userRole', data.data.user.userType);
+        localStorage.setItem('userRole', response.data.data.user.userType);
         
-        // Redirect to admin dashboard after 2 seconds
+        console.log('📝 Stored in localStorage:', {
+          token: localStorage.getItem('token')?.substring(0, 20) + '...',
+          userRole: localStorage.getItem('userRole'),
+          dashboardAccess: localStorage.getItem('dashboardAccess')
+        });
+        
+        // Redirect to admin dashboard after 1 second
         setTimeout(() => {
           console.log('🎯 Redirecting to Admin Dashboard...');
-          navigate('/admin/dashboard');
-        }, 2000);
-      } else {
-        setError(data.message || 'Failed to sign in. Please check your credentials.');
+          console.log('🔄 Current URL:', window.location.href);
+          navigate('/admin', { replace: true });
+          console.log('✅ Navigation triggered to /admin');
+        }, 1000);
       }
     } catch (err) {
       console.error('Sign in error:', err);
-      setError('Network error. Please check if the backend server is running.');
+      setError(err.response?.data?.message || 'Failed to sign in. Please try again.');
     } finally {
       setIsLoading(false);
     }
